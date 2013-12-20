@@ -14,6 +14,26 @@ FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with Foobar.
 If not, see http://www.gnu.org/licenses/.
+
+
+calc_network_stats computes the following for the given network over a list of alpha
+cutoff values:
+
+* number of nodes in the network
+
+* number of edges in the network
+
+* average clustering coefficient
+
+* average shortest path length between all nodes
+
+* number of communities / clusters of nodes
+
+* modularity value
+
+It is recommended that you run subset_backbone_network on your edge list first with an
+alpha cutoff of 1.0, so all edges are assigned a p-value.
+
 """
 
 import sys
@@ -22,16 +42,24 @@ import community
 import csv
 from numpy import arange
 
+if len(sys.argv) < 2:
+	print("")
+	print("Invalid parameters provided.")
+	print("")
+	print("Usage: python calc_network_stats.py EDGE_FILE_NAME")
+	print("\tEDGE_FILE_NAME: The name of the file containing all edges for the network")
+	print("")
+	quit()
+
 infilename = sys.argv[1]
-jobID = int(sys.argv[2]) - 1
-outfilename = infilename.replace(".csv", "") + "-network-stats-job" + str(jobID) + ".csv"
+outfilename = infilename.replace(".csv", "") + "-network-stats.csv"
 
 pairWeight = {}
 
 with open(outfilename, "w") as network_outfile:
     network_outfile.write("alpha,num_nodes,num_edges,avg_clustering_coeff,avg_shortest_path_length,num_communities,modularity_value\n")
 
-    print("reading in edgelist...")
+    print("reading in edge list...")
 
     with open(infilename) as infile:
         for line in infile:
@@ -41,21 +69,24 @@ with open(outfilename, "w") as network_outfile:
             weight = float(line[2])
             pval = float(line[3])
 
+			# if both edges are present, only keep the strongest edge
             if (srB, srA) in pairWeight:
-                if pval < pairWeight[(srB, srA)][1]:
+            	# replace the other edge if it is present but weaker
+            	otherEdgeWeight = pairWeight[(srB, srA)][0]
+                if weight > otherEdgeWeight:
                     pairWeight[(srB, srA)] = (weight, pval)
             else:
+            	# otherwise just store the edge
                 pairWeight[(srA, srB)] = (weight, pval)
 
 
     print("calculating network measures...")
 
+	# create a list of alpha values on a logarithmic scale
     alphas = list(arange(1e-4, 1e-3, 1e-4))
     alphas.extend(list(arange(1e-3, 1e-2, 1e-3)))
     alphas.extend(list(arange(1e-2, 1e-1, 1e-2)))
     alphas.extend(list(arange(1e-1, 1e-0 + 0.00001, 1e-1)))
-
-    alphas = [alphas[jobID]]
 
     for alpha in alphas:
         num_nodes = 0
@@ -67,18 +98,21 @@ with open(outfilename, "w") as network_outfile:
 
         print("\talpha = " + str(alpha) + "...")
 
-        cur_graph = nx.Graph()
         edge_weights = []
 
         for (srA, srB) in pairWeight:
             weight = pairWeight[(srA, srB)][0]
             pval = pairWeight[(srA, srB)][1]
 
+			# only keep significant edges according to the current alpha
             if pval < alpha:
                 edge_weights.append((int(srA), int(srB), weight))
 
+		# store the edge weights into a NetworkX graph
+		cur_graph = nx.Graph()
         cur_graph.add_weighted_edges_from(edge_weights)
 
+		# find the largest connected component
         if not nx.is_connected(cur_graph):
             sub_graphs = nx.connected_component_subgraphs(cur_graph)
             
@@ -94,7 +128,7 @@ with open(outfilename, "w") as network_outfile:
         # create separate file to save the degree of each node
         degrees = cur_graph.degree()
         
-        with open("reddit-interest-serrano-degree-dist-pval" + str(alpha) + ".csv", "w") as out_file:
+        with open(infilename.replace(".csv", "") + "-degree-dist-pval" + str(alpha) + ".csv", "w") as out_file:
             w = csv.DictWriter(out_file, degrees.keys())
             w.writeheader()
             w.writerow(degrees)
@@ -109,7 +143,7 @@ with open(outfilename, "w") as network_outfile:
         # calculate shortest paths
         avg_shortest_path_length = nx.average_shortest_path_length(cur_graph)
         
-        # calculate communities
+        # calculate communities and modularity value
         partition = community.best_partition(cur_graph)
         num_communities = len(set(partition.values()))
         modularity_value = community.modularity(partition, cur_graph)
