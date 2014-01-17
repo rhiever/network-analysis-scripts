@@ -48,14 +48,14 @@ from scipy.integrate import quad
 import sys
 
 if len(sys.argv) < 3:
-	print("")
-	print("Invalid parameters provided.")
-	print("")
-	print("Usage: python subset_backbone_network.py EDGE_FILE_NAME ALPHA_CUTOFF")
-	print("\tEDGE_FILE_NAME: The name of the file containing all edges for the network")
-	print("\tALPHA_CUTOFF: The level of significance that an edge must have to be maintained")
-	print("")
-	quit()
+    print("")
+    print("Invalid parameters provided.")
+    print("")
+    print("Usage: python subset_backbone_network.py EDGE_FILE_NAME ALPHA_CUTOFF")
+    print("\tEDGE_FILE_NAME: The name of the file containing all edges for the network")
+    print("\tALPHA_CUTOFF: The level of significance that an edge must have to be maintained")
+    print("")
+    quit()
 
 infilename = sys.argv[1]
 siglevel = float(sys.argv[2])
@@ -77,10 +77,10 @@ with open(infilename) as infile:
             print(sline)
             quit()
         
-		if [nodeB, W] not in weights[nodeA]:
-			weights[nodeA].append([nodeB, W])
-		if [nodeA, W] not in weights[nodeB]:
-			weights[nodeB].append([nodeA, W])
+        if [nodeB, W] not in weights[nodeA]:
+            weights[nodeA].append([nodeB, W])
+        if [nodeA, W] not in weights[nodeB]:
+            weights[nodeB].append([nodeA, W])
 
 
 integrand = lambda x,k : (1 - x) ** (k - 2)
